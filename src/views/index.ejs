@@ -19,7 +19,10 @@
     <nav class="navbar navbar-dark bg-primary mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">ADIPURNA Wholesale Store</a>
-            <a href="/admin" class="btn btn-outline-light btn-sm">Admin Panel</a>
+            <div>
+                <a href="/cart" class="btn btn-light btn-sm me-2">Cart</a>
+                <a href="/admin" class="btn btn-outline-light btn-sm">Admin Panel</a>
+            </div>
         </div>
     </nav>
 
@@ -43,13 +46,18 @@
                                 <p class="card-text mb-1 text-primary fw-bold">Rp <%= Number(product.harga).toLocaleString('en-US') %></p>
                                 <p class="card-text text-muted mb-3"><small>Stock: <%= product.stok %></small></p>
                                 
-                                <form action="/order/<%= product.id %>" method="POST" class="mt-auto">
+                                <div class="mt-auto">
                                     <% if (product.stok > 0) { %>
-                                        <button type="submit" class="btn btn-success w-100">Buy Now</button>
+                                        <form action="/cart/add/<%= product.id %>" method="POST" class="mb-2">
+                                            <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
+                                        </form>
+                                        <form action="/order/<%= product.id %>" method="POST">
+                                            <button type="submit" class="btn btn-success w-100">Buy Now</button>
+                                        </form>
                                     <% } else { %>
                                         <button class="btn btn-secondary w-100" disabled>Out of Stock</button>
                                     <% } %>
-                                </form>
+                                </div>
                             </div>
                         </div>
                     </div>

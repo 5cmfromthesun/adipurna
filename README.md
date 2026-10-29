@@ -17,6 +17,9 @@
   - [5. Secrets Manager](#5-secrets-manager)
   - [6. ECS (Elastic Container Service)](#6-ecs-elastic-container-service)
   - [7. GitHub & CI/CD](#7-github--cicd)
+- [Additional Services](#additional-services)
+- [Local Development](#local-development)
+- [CLUE Folder](#clue-folder)
 - [Additional Notes](#additional-notes)
 - [References](#references)
 
@@ -34,6 +37,7 @@ This module guides you through deploying the **Adipurna Wholesale Store** web ap
 | **ECR** | Private Docker image registry |
 | **ECS (Fargate)** | Container orchestration to run the application |
 | **AWS Secrets Manager** | Securely store database credentials |
+| **Application Load Balancer (ALB)** | Load balancing and traffic distribution |
 
 **Additional Tools:** GitHub (Source Code Repository & CI/CD)
 
@@ -48,6 +52,7 @@ By completing this module, you will be able to:
 - Orchestrate containerized applications using ECS with Fargate
 - Securely manage credentials using AWS Secrets Manager
 - Implement a CI/CD pipeline using GitHub Actions
+- Work with caching, messaging, and monitoring services
 
 ## Implementation Steps
 
@@ -60,105 +65,138 @@ Create a custom VPC with the following configuration:
 | **VPC Name** | `lks-vpc-username` | Replace `username` with your own identifier |
 | **CIDR Block** | `172.168.0.0/16` | Main network range |
 | **Public Subnet 1** | `172.168.1.0/24` | Place in `us-east-1a` |
-| **Public Subnet 2** | `172.168.2.0/24` | Place in `us-east-1b` (recommended for high availability) |
+| **Public Subnet 2** | `172.168.2.0/24` | Place in `us-east-1b` |
 | **Private Subnet 1** | `172.168.10.0/24` | Place in `us-east-1a` |
-| **Private Subnet 2** | `172.168.20.0/24` | Place in `us-east-1b` (recommended for high availability) |
-| **Internet Gateway** | Attach to VPC | Required for the Application Load Balancer to access the internet |
-| **NAT Gateway** | Deploy in a public subnet | Required for ECS tasks in private subnets to pull images and access AWS services |
-| **Route Tables** | Configure accordingly | Public subnets route to IGW. Private subnets route to the NAT Gateway |
-
-> **Tip:** For the Load Balancer and ECS Fargate, it is recommended to use at least 2 Availability Zones.
+| **Private Subnet 2** | `172.168.20.0/24` | Place in `us-east-1b` |
+| **Internet Gateway** | Attach to VPC | Required for ALB |
+| **NAT Gateway** | Deploy in a public subnet | Required for ECS tasks in private subnets |
+| **Route Tables** | Configure accordingly | Public to IGW, Private to NAT Gateway |
 
 ### 2. S3 (Simple Storage Service)
-
-Create an S3 bucket for storing product images:
 
 | Configuration | Value | Notes |
 | --- | --- | --- |
 | **Bucket Name** | `lks-photo-catalogue-username` | Must be globally unique |
-| **Block Public Access** | **Uncheck all options** | Required for image access from the application |
-| **Bucket Policy** | Apply an appropriate bucket policy | Allow public read access to objects, or use presigned URLs as appropriate |
-
-> **Note:** Ensure your bucket policy is correctly configured to avoid unnecessary exposure.
+| **Block Public Access** | Uncheck all options | Required for image access |
+| **Bucket Policy** | Apply appropriate policy | Allow access as needed |
 
 ### 3. RDS (Relational Database Service)
 
-Deploy a PostgreSQL database instance:
-
 | Configuration | Value | Notes |
 | --- | --- | --- |
-| **Engine** | PostgreSQL | Use the recommended stable version |
-| **DB Instance Identifier** | `lks-postgre-username` | Replace `username` with your identifier |
-| **Initial Database Name** | `tokodb` | Required by the application |
-| **Instance Class** | `db.t3.micro` | Suitable for the LKS environment |
-| **Storage** | 20 GB (General Purpose SSD) | Sufficient for testing |
-| **Connectivity** | Private Subnets | Do **NOT** make it publicly accessible |
-| **Security Group** | Allow PostgreSQL (port 5432) | Only allow inbound traffic from the ECS security group |
-| **Master Username/Password** | Set securely | Store these credentials in AWS Secrets Manager |
+| **Engine** | PostgreSQL | Use recommended version |
+| **DB Instance Identifier** | `lks-postgre-username` | Replace `username` |
+| **Initial Database Name** | `tokodb` | Required by application |
+| **Instance Class** | `db.t3.micro` | For LKS environment |
+| **Connectivity** | Private Subnets | Not publicly accessible |
+| **Security Group** | Allow port 5432 from ECS SG | Only from ECS tasks |
 
 ### 4. ECR (Elastic Container Registry)
 
-Create a private container registry:
-
 | Configuration | Value | Notes |
 | --- | --- | --- |
-| **Repository Name** | `lks-ecr-username` | Replace `username` with your identifier |
-| **Visibility** | Private | Recommended for security |
+| **Repository Name** | `lks-ecr-username` | Replace `username` |
 
 ### 5. Secrets Manager
 
-Store database credentials securely:
-
 | Configuration | Value | Notes |
 | --- | --- | --- |
-| **Secret Name** | `lks-secret-username` | Replace `username` with your identifier |
-| **Secret Type** | Other type of secret (Key/value pairs) | Store as JSON |
-| **Required Keys** | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Must match these exact keys for application compatibility |
+| **Secret Name** | `lks-secret-username` | Replace `username` |
+| **Secret Type** | Key/value pairs (JSON) | Store as JSON |
+| **Required Keys** | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Must match exactly |
 | **DB_PORT** | `5432` | Default PostgreSQL port |
-| **DB_NAME** | `tokodb` | Must match the RDS initial database name |
+| **DB_NAME** | `tokodb` | Must match RDS |
 
 ### 6. ECS (Elastic Container Service)
 
-Deploy the containerized application using ECS with AWS Fargate:
-
 | Resource | Configuration | Notes |
 | --- | --- | --- |
-| **Cluster Name** | `lks-cluster-username` | Replace `username` with your identifier |
-| **Task Definition Name** | `lks-task-username` | Replace `username` with your identifier |
-| **Launch Type** | Fargate | Serverless container compute |
-| **Image** | `<account-id>.dkr.ecr.us-east-1.amazonaws.com/lks-ecr-username:latest` | Image pushed from ECR |
-| **Container Port** | `80` | The application listens on port 80 |
+| **Cluster Name** | `lks-cluster-username` | Replace `username` |
+| **Task Definition Name** | `lks-task-username` | Replace `username` |
+| **Launch Type** | Fargate | Serverless |
+| **Image** | `<account-id>.dkr.ecr.us-east-1.amazonaws.com/lks-ecr-username:latest` | From ECR |
+| **Container Port** | `80` | Application port |
 | **Network Mode** | `awsvpc` | Required for Fargate |
-| **Task Execution Role** | Create/Attach IAM Role | Must have permission to pull images from ECR and read secrets from Secrets Manager |
-| **Task Role** | Create/Attach IAM Role | Must have permission to access the S3 bucket |
-| **Service Name** | `lks-service-username` | Replace `username` with your identifier |
-| **Service Type** | Fargate Service | Used to run and maintain the desired number of tasks |
-| **Subnets** | Private Subnets | Run ECS tasks in private subnets for better security |
-| **Security Group** | Allow HTTP (80) from ALB | Only the Application Load Balancer should be able to reach the tasks |
-| **Load Balancer** | Application Load Balancer (ALB) | Place in public subnets and target the ECS service on port 80 |
-| **Desired Count** | `1` or `2` | Adjust based on requirements |
+| **Service Name** | `lks-service-username` | Replace `username` |
+| **Subnets** | Private Subnets | Run in private subnets |
+| **Load Balancer** | Application Load Balancer | In public subnets, target on port 80 |
 
 ### 7. GitHub & CI/CD
 
-Automate the build and deployment process:
-
 | Step | Description | Notes |
 | --- | --- | --- |
-| **Repository** | Push the application source code and `Dockerfile` to your GitHub repository | Ensure all required files are committed |
-| **GitHub Secrets** | Add the following secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REPOSITORY`, `ECS_CLUSTER`, `ECS_SERVICE` | Use an IAM user with minimal permissions (ECR push and ECS update-service) |
-| **Workflow File** | Create `.github/workflows/deploy.yml` | Use the provided `deploy.yml.example` as a reference |
-| **Workflow Actions** | Build the Docker image, push it to ECR, and trigger a new deployment to the ECS service | Configure to trigger on push to the `main` branch |
-| **Environment Variables** | Do **not** commit real credentials to GitHub | Always use GitHub Secrets and AWS Secrets Manager |
+| **Repository** | Push source code and Dockerfile to GitHub | Include all files |
+| **GitHub Secrets** | Add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REPOSITORY`, `ECS_CLUSTER`, `ECS_SERVICE` | Use IAM user with minimal permissions |
+| **Workflow File** | Create `.github/workflows/deploy.yml` | Use example as reference |
+| **Trigger** | On push to `main` branch | Builds, pushes to ECR, deploys to ECS |
+
+## Additional Services
+
+The application uses additional AWS services for enhanced functionality:
+
+| Service | Purpose | Usage |
+| --- | --- | --- |
+| **Amazon ElastiCache (Redis)** | Caching layer | Cache product catalog for better performance |
+| **Amazon SQS** | Message queue | Async order processing with Dead Letter Queue |
+| **AWS Lambda** | Serverless function | Process orders from SQS queue |
+| **Amazon CloudWatch** | Monitoring & logging | Logs, metrics, and alarms |
+| **Amazon SNS** | Notifications | Alert notifications |
+| **Amazon CloudFront** | CDN | Content delivery for static assets |
+| **VPC Endpoints** | Private connectivity | Secure access to AWS services without NAT |
+
+## Local Development
+
+Before starting, make sure Docker is running.
+
+```bash
+docker compose up -d --build
+```
+
+Access the application at http://localhost:8080
+
+Services used:
+- PostgreSQL
+- Redis
+- Node.js App
+
+Features available locally:
+- Product catalog with cart
+- Order management
+- Admin panel with statistics
+- Redis caching
+- SQS queue integration ready
+- Health checks at `/health` and `/health/detailed`
+
+## CLUE Folder
+
+Use `CLUE/` to provision base infrastructure for learning:
+
+```bash
+cd CLUE
+terraform init
+terraform plan
+terraform apply
+```
+
+Resources provisioned:
+- VPC, Public/Private Subnets, NAT Gateway, Route Tables
+- ECR Repository
+- S3 Bucket
+- RDS PostgreSQL
+- Secrets Manager
+- ECS Cluster
+
+Focus on building ALB, Task Definition, ECS Service, and deploying the application.
 
 ## Additional Notes
 
-- **Security First:** Use private subnets for RDS and ECS tasks. Only the Application Load Balancer should be exposed to the internet.
-- **Credentials:** Never commit `.env` files with real credentials to your repository. Always rely on AWS Secrets Manager and GitHub Secrets.
-- **Naming Convention:** Replace `username` with your own identifier consistently across all AWS resources.
-- **Health Check:** The application exposes a health check endpoint at `/health`, which should be used for the ALB target group health checks.
-- **S3 Access:** The application uses the AWS SDK default credential chain. Ensure your ECS Task Role has the correct S3 permissions.
-- **Database Initialization:** On startup, the application automatically creates the `products` table if it does not exist.
-- **Cost Awareness:** To avoid unnecessary billing, delete or destroy resources once testing is complete.
+- **Security:** Use private subnets for RDS and ECS tasks. Only ALB should be internet-facing.
+- **Credentials:** Never commit `.env` files. Use AWS Secrets Manager and GitHub Secrets.
+- **Naming:** Replace `username` with your identifier consistently.
+- **Health Check:** Application uses `/health` endpoint for ALB target group.
+- **Caching:** Product data is cached in Redis (5 min TTL).
+- **Orders:** Orders are queued to SQS for asynchronous processing.
+- **Billing:** Destroy resources when not in use.
 
 ## References
 

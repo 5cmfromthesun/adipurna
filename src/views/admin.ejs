@@ -19,11 +19,32 @@
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/admin">ADIPURNA Admin Panel</a>
-            <a href="/" class="btn btn-outline-light btn-sm">Go to Store</a>
+            <div>
+                <a href="/admin/orders" class="btn btn-light btn-sm me-2">Orders</a>
+                <a href="/" class="btn btn-outline-light btn-sm">Go to Store</a>
+            </div>
         </div>
     </nav>
 
     <div class="container">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h5>Total Orders</h5>
+                        <h3><%= stats ? stats.orders : 0 %></h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5>Total Revenue</h5>
+                        <h3>Rp <%= stats ? Number(stats.revenue).toLocaleString('en-US') : 0 %></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- CREATE FORM -->
         <div class="card mb-4 shadow-sm">
             <div class="card-header bg-primary text-white fw-bold">Add New Product</div>

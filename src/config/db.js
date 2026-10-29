@@ -49,7 +49,7 @@ const getDatabaseConfig = async () => {
   if (process.env.SECRET_NAME) {
     try {
       console.log(`Fetching credentials from AWS Secrets Manager (${process.env.SECRET_NAME})...`);
-      const client = new SecretsManagerClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const client = new SecretsManagerClient({ region: process.env.AWS_REGION || 'ap-southeast-1' });
       const command = new GetSecretValueCommand({ SecretId: process.env.SECRET_NAME });
       const response = await client.send(command);
 
@@ -106,6 +106,21 @@ const initDB = async (retries = 10, delay = 5000) => {
       harga NUMERIC NOT NULL,
       stok INTEGER NOT NULL,
       foto_url TEXT
+    );
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      customer_name VARCHAR(100),
+      customer_email VARCHAR(100),
+      total_amount NUMERIC NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS order_items (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+      product_id INTEGER REFERENCES products(id),
+      quantity INTEGER NOT NULL,
+      price NUMERIC NOT NULL
     );
   `;
 
